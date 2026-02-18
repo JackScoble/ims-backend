@@ -1,13 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, InventoryItemViewSet, StockAuditViewSet
+from .views import CategoryViewSet, InventoryItemViewSet, StockAuditViewSet, RegisterUserView
 
-# The router automatically creates all the CRUD routes for us!
 router = DefaultRouter()
 router.register(r'categories', CategoryViewSet)
 router.register(r'items', InventoryItemViewSet)
 router.register(r'audit', StockAuditViewSet)
 
 urlpatterns = [
+    path('register/', RegisterUserView.as_view(), name='register'),
     path('', include(router.urls)),
 ]
