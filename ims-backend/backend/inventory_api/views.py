@@ -1,6 +1,13 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, generics
 from .models import Category, InventoryItem, StockAudit
-from .serializers import CategorySerializer, InventoryItemSerializer, StockAuditSerializer
+from .serializers import UserRegistrationSerializer, CategorySerializer, InventoryItemSerializer, StockAuditSerializer
+from django.contrib.auth.models import User
+from rest_framework.permissions import AllowAny
+
+class RegisterUserView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = [AllowAny] # Anyone can register!
+    serializer_class = UserRegistrationSerializer
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
