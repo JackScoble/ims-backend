@@ -11,6 +11,11 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# This loads .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,8 +43,10 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
-    "inventory_api",
     "corsheaders",
+    "cloudinary_storage",
+    "cloudinary",
+    "inventory_api",
 ]
 
 MIDDLEWARE = [
@@ -137,3 +144,13 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = [
     "https://glowing-space-engine-r4v46p4pxwxf57xx-5173.app.github.dev",
 ]
+
+# Cloudinary Credentials
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
+
+# Tell Django to use Cloudinary for media files (images)
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
