@@ -14,6 +14,7 @@ class InventoryItem(models.Model):
     description = models.TextField(blank=True)
     quantity = models.PositiveIntegerField(default=0) # Prevents negative stock values natively
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='items')
+    image = models.ImageField(upload_to='inventory_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='inventory_items')
