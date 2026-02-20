@@ -24,12 +24,16 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'description']
 
 class StockAuditSerializer(serializers.ModelSerializer):
-    # We want to display the user's username rather than just their ID number
-    user = serializers.ReadOnlyField(source='user.username')
+    username = serializers.ReadOnlyField(source='user.username')
+    item_name = serializers.ReadOnlyField(source='item.name')
     
     class Meta:
         model = StockAudit
-        fields = ['id', 'item', 'user', 'quantity_changed', 'reason', 'timestamp']
+        fields = [
+            'id', 'user', 'username', 'timestamp', 
+            'object_type', 'object_id', 'object_name', 
+            'action', 'description', 'fields_changed_count'
+        ]
 
 class InventoryItemSerializer(serializers.ModelSerializer):
     # This embeds the category details directly into the item JSON

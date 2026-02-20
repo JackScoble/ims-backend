@@ -12,7 +12,7 @@ class InventoryItem(models.Model):
     name = models.CharField(max_length=200)
     sku = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
-    quantity = models.PositiveIntegerField(default=0) # Prevents negative stock values natively
+    quantity = models.PositiveIntegerField(default=0)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='items')
     image = models.ImageField(upload_to='inventory_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -23,12 +23,20 @@ class InventoryItem(models.Model):
         return f"{self.name} (SKU: {self.sku})"
 
 class StockAudit(models.Model):
-    """Tracks every time stock is added or removed (Audit History)"""
-    item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='audit_logs')
+    # Who changed it
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    quantity_changed = models.IntegerField() # e.g., +50 or -10
-    reason = models.CharField(max_length=255)
+    username = models.CharField(max_length=150, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
+    # What was changed
+    object_type = models.CharField(max_length=50, default="UNKNOWN") # 'ITEM', 'CATEGORY', 'USER'
+    object_id = models.PositiveIntegerField(null=True)
+    object_name = models.CharField(max_length=255, blank=True) # SKU, Name, or Username
+    
+    # Action details
+    action = models.CharField(max_length=20) # 'CREATE', 'UPDATE', 'DELETE'
+    description = models.TextField(default="")
+    fields_changed_count = models.IntegerField(default=0)
+
     def __str__(self):
-        return f"{self.item.name} | Change: {self.quantity_changed} | Date: {self.timestamp}"
+        return f"{self.action} on {self.object_type} by {self.username}"
