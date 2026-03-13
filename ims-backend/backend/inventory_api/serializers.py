@@ -25,7 +25,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class StockAuditSerializer(serializers.ModelSerializer):
     username = serializers.ReadOnlyField(source='user.username')
-    item_name = serializers.ReadOnlyField(source='item.name')
     
     class Meta:
         model = StockAudit

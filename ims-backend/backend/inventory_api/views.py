@@ -3,6 +3,7 @@ from .models import Category, InventoryItem, StockAudit
 from .serializers import *
 from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
 
 # --- AUDIT ENGINE ---
 def log_complex_audit(user, action, obj_type, instance, validated_data=None):
@@ -80,6 +81,18 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
     queryset = InventoryItem.objects.all()
     serializer_class = InventoryItemSerializer
     permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        audit_logs = StockAudit.objects.filter(
+            object_id=instance.id,
+            object_type='ITEM'
+        ).order_by('-timestamp')
+        
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['audit_logs'] = StockAuditSerializer(audit_logs, many=True).data
+        return Response(data)
 
     def perform_create(self, serializer):
         item = serializer.save(owner=self.request.user)
