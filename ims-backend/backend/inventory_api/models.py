@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -41,3 +42,13 @@ class StockAudit(models.Model):
 
     def __str__(self):
         return f"{self.action} on {self.object_type} by {self.username}"
+
+class DailyStockSnapshot(models.Model):
+    date = models.DateField(default=timezone.now, unique=True)
+    total_value = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    class Meta:
+        ordering = ['date'] # Ensures the chart always reads left-to-right by date
+
+    def __str__(self):
+        return f"{self.date} - £{self.total_value}"
