@@ -48,8 +48,8 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         model = InventoryItem
         fields = [
             'id', 'name', 'sku', 'description', 'quantity', 
-            'category', 'category_name', 'image', 'created_at', 'updated_at', 
-            'owner', 'owner_name', 'owner_email', 'audit_logs'
+            'price', 'category', 'category_name', 'image', 'created_at', 
+            'updated_at', 'owner', 'owner_name', 'owner_email', 'audit_logs'
         ]
         # We make owner read-only so people can't re-assign who owns the item
         read_only_fields = ['owner', 'owner_name', 'owner_email', 'created_at', 'updated_at']

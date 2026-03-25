@@ -13,6 +13,7 @@ class InventoryItem(models.Model):
     sku = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
     quantity = models.PositiveIntegerField(default=0)
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='items')
     image = models.ImageField(upload_to='inventory_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
