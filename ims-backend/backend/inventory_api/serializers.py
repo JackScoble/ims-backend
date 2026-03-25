@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, InventoryItem, StockAudit
+from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot
 from django.contrib.auth.models import User
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -53,3 +53,8 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         ]
         # We make owner read-only so people can't re-assign who owns the item
         read_only_fields = ['owner', 'owner_name', 'owner_email', 'created_at', 'updated_at']
+
+class DailyStockSnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailyStockSnapshot
+        fields = ['date', 'total_value']

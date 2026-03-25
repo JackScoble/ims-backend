@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, generics, exceptions
-from .models import Category, InventoryItem, StockAudit
+from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot
 from .serializers import *
 from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -129,3 +129,7 @@ class StockAuditViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StockAudit.objects.all().order_by('-timestamp')
     serializer_class = StockAuditSerializer
     permission_classes = [IsAuthenticated]
+
+class DailyStockSnapshotListView(generics.ListAPIView):
+    queryset = DailyStockSnapshot.objects.all()
+    serializer_class = DailyStockSnapshotSerializer
