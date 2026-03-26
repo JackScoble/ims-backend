@@ -117,3 +117,12 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
         html_message=email_html_message,
         fail_silently=False,
     )
+
+class Order(models.Model):
+    item = models.ForeignKey('InventoryItem', on_delete=models.CASCADE, related_name='orders')
+    quantity_ordered = models.PositiveIntegerField()
+    processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Order: {self.quantity_ordered}x {self.item.name}"
