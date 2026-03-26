@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, UserProfile
+from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, UserProfile, Order
 from django.contrib.auth.models import User
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -67,13 +67,11 @@ class StockAuditSerializer(serializers.ModelSerializer):
         ]
 
 class InventoryItemSerializer(serializers.ModelSerializer):
-    # This embeds the category details directly into the item JSON
     category_name = serializers.ReadOnlyField(source='category.name')
 
     owner_name = serializers.ReadOnlyField(source='owner.username')
     owner_email = serializers.ReadOnlyField(source='owner.email')
 
-    # This brings in our audit history so we can see it when viewing an item
     audit_logs = StockAuditSerializer(many=True, read_only=True)
     
     class Meta:
@@ -83,10 +81,28 @@ class InventoryItemSerializer(serializers.ModelSerializer):
             'price', 'low_stock_threshold', 'category', 'category_name', 'image', 'created_at', 
             'updated_at', 'owner', 'owner_name', 'owner_email', 'audit_logs'
         ]
-        # We make owner read-only so people can't re-assign who owns the item
         read_only_fields = ['owner', 'owner_name', 'owner_email', 'created_at', 'updated_at']
 
 class DailyStockSnapshotSerializer(serializers.ModelSerializer):
     class Meta:
         model = DailyStockSnapshot
         fields = ['date', 'total_value']
+
+class OrderSerializer(serializers.ModelSerializer):
+    item_name = serializers.ReadOnlyField(source='item.name')
+    
+    class Meta:
+        model = Order
+        fields = ['id', 'item', 'item_name', 'quantity_ordered', 'processed_by', 'created_at']
+        read_only_fields = ['processed_by', 'created_at']
+
+    def validate(self, data):
+        if data['quantity_ordered'] <= 0:
+            raise serializers.ValidationError({"quantity_ordered": "Order quantity must be at least 1."})
+        
+        if data['item'].quantity < data['quantity_ordered']:
+            raise serializers.ValidationError({
+                "quantity_ordered": f"Not enough stock! Only {data['item'].quantity} left in inventory."
+            })
+        
+        return data
