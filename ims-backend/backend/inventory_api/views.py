@@ -133,3 +133,10 @@ class StockAuditViewSet(viewsets.ReadOnlyModelViewSet):
 class DailyStockSnapshotListView(generics.ListAPIView):
     queryset = DailyStockSnapshot.objects.all()
     serializer_class = DailyStockSnapshotSerializer
+
+class UserProfileView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserUpdateSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user

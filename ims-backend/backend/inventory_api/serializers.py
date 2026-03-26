@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot
+from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, UserProfile
 from django.contrib.auth.models import User
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -17,6 +17,38 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             password=validated_data['password']
         )
         return user
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['profile_image', 'department', 'job_title']
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
+        read_only_fields = ['username']
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop('profile', {})
+        
+        instance.email = validated_data.get('email', instance.email)
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.save()
+
+        profile = instance.profile
+        profile.department = profile_data.get('department', profile.department)
+        profile.job_title = profile_data.get('job_title', profile.job_title)
+        
+        if 'profile_image' in profile_data:
+            profile.profile_image = profile_data['profile_image']
+            
+        profile.save()
+
+        return instance
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
