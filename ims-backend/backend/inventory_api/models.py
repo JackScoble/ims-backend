@@ -3,6 +3,11 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.core.mail import send_mail
+from django.conf import settings
+from django.urls import reverse
+from django_rest_passwordreset.signals import reset_password_token_created
+import os
 
 class Category(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -76,3 +81,38 @@ def create_user_profile(sender, instance, created, **kwargs):
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
     instance.profile.save()
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+    """
+    Handles password reset tokens
+    When a token is created, an e-mail needs to be sent to the user
+    """
+    # Pull the frontend URL from the environment, fallback to localhost just in case
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+    
+    # Construct the exact URL for your React app
+    reset_url = f"{frontend_url}/reset-password?token={reset_password_token.key}"
+
+    print(f"\n\n--- PASSWORD RESET LINK ---\n{reset_url}\n---------------------------\n\n")
+    
+    email_html_message = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>IMS Pro - Password Reset</h2>
+            <p>Hello {reset_password_token.user.username},</p>
+            <p>You recently requested to reset your password for your IMS Pro account. Click the button below to reset it:</p>
+            <a href="{reset_url}" style="display: inline-block; padding: 10px 20px; background-color: #8884d8; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset My Password</a>
+            <p style="margin-top: 20px; font-size: 12px; color: #777;">If you did not request a password reset, please ignore this email.</p>
+        </body>
+    </html>
+    """
+
+    send_mail(
+        subject="Password Reset Request - IMS Pro",
+        message=f"Please use this link to reset your password: {reset_url}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[reset_password_token.user.email],
+        html_message=email_html_message,
+        fail_silently=False,
+    )
