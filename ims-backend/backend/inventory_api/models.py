@@ -22,6 +22,7 @@ class InventoryItem(models.Model):
     description = models.TextField(blank=True)
     quantity = models.PositiveIntegerField(default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    low_stock_threshold = models.IntegerField(default=5)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='items')
     image = models.ImageField(upload_to='inventory_images/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -109,7 +110,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     """
 
     send_mail(
-        subject="Password Reset Request - IMS Pro",
+        subject="IMS Pro - Password Reset Request",
         message=f"Please use this link to reset your password: {reset_url}",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[reset_password_token.user.email],

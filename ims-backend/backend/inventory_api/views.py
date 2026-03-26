@@ -7,6 +7,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.mail import send_mail
+from django.conf import settings
+import os
 
 # --- AUDIT ENGINE ---
 def log_complex_audit(user, action, obj_type, instance, validated_data=None):
@@ -103,8 +106,16 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         old_instance = self.get_object()
+        old_quantity = old_instance.quantity
+
         item = serializer.save()
+        new_quantity = item.quantity
+        threshold = item.low_stock_threshold
+
         log_complex_audit(self.request.user, 'UPDATE', 'ITEM', old_instance, serializer.validated_data)
+
+        if old_quantity > threshold and new_quantity <= threshold:
+            self.send_low_stock_email(item)
 
     def perform_destroy(self, instance):
         if instance.owner != self.request.user:
@@ -112,6 +123,57 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         
         log_complex_audit(self.request.user, 'DELETE', 'ITEM', instance)
         instance.delete()
+
+    def send_low_stock_email(self, item):
+        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
+        subject = f"IMS Pro: Low Stock Alert for {item.name}"
+        
+        message = (
+            f"Hello,\n\n"
+            f"This is an automated alert. Your inventory for '{item.name}' "
+            f"has dropped to {item.quantity}, which is at or below your custom "
+            f"warning threshold of {item.low_stock_threshold}.\n\n"
+            f"Please log in to IMS Pro to restock soon: {frontend_url}"
+        )
+
+        html_message = f"""
+        <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #d73a49; border-bottom: 2px solid #eee; padding-bottom: 10px;">⚠️ Low Stock Alert</h2>
+                <p>Hello,</p>
+                <p>This is an automated alert. Your inventory for <strong>'{item.name}'</strong> 
+                has dropped to <strong>{item.quantity}</strong>, which is at or below your custom 
+                warning threshold of {item.low_stock_threshold}.</p>
+                
+                <p>Please log in to your dashboard to restock soon!</p>
+                
+                <div style="margin: 30px 0;">
+                    <a href="{frontend_url}" 
+                       style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                       Go to IMS Pro
+                    </a>
+                </div>
+                
+                <p style="font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
+                    If the button doesn't work, copy and paste this link into your browser: <br>
+                    {frontend_url}
+                </p>
+            </body>
+        </html>
+        """
+        
+        recipient_email = item.owner.email 
+
+        if recipient_email:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[recipient_email],
+                fail_silently=False,
+                html_message=html_message
+            )
 
 class UserViewSet(viewsets.ModelViewSet):
     """ViewSet to handle User account updates/deletes with auditing"""
