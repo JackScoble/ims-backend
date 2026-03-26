@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, generics, exceptions, status
-from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot
+from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, Order
 from .serializers import *
 from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -83,48 +83,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         log_complex_audit(self.request.user, 'DELETE', 'CATEGORY', instance)
         instance.delete()
 
-class InventoryItemViewSet(viewsets.ModelViewSet):
-    queryset = InventoryItem.objects.all()
-    serializer_class = InventoryItemSerializer
-    permission_classes = [IsAuthenticated]
-
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        audit_logs = StockAudit.objects.filter(
-            object_id=instance.id,
-            object_type='ITEM'
-        ).order_by('-timestamp')
-        
-        serializer = self.get_serializer(instance)
-        data = serializer.data
-        data['audit_logs'] = StockAuditSerializer(audit_logs, many=True).data
-        return Response(data)
-
-    def perform_create(self, serializer):
-        item = serializer.save(owner=self.request.user)
-        log_complex_audit(self.request.user, 'CREATE', 'ITEM', item, serializer.validated_data)
-
-    def perform_update(self, serializer):
-        old_instance = self.get_object()
-        old_quantity = old_instance.quantity
-
-        item = serializer.save()
-        new_quantity = item.quantity
-        threshold = item.low_stock_threshold
-
-        log_complex_audit(self.request.user, 'UPDATE', 'ITEM', old_instance, serializer.validated_data)
-
-        if old_quantity > threshold and new_quantity <= threshold:
-            self.send_low_stock_email(item)
-
-    def perform_destroy(self, instance):
-        if instance.owner != self.request.user:
-            raise exceptions.PermissionDenied("Ownership required for deletion.")
-        
-        log_complex_audit(self.request.user, 'DELETE', 'ITEM', instance)
-        instance.delete()
-
-    def send_low_stock_email(self, item):
+def send_low_stock_email(item):
         frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
         subject = f"IMS Pro: Low Stock Alert for {item.name}"
@@ -174,6 +133,81 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
                 fail_silently=False,
                 html_message=html_message
             )
+
+class InventoryItemViewSet(viewsets.ModelViewSet):
+    queryset = InventoryItem.objects.all()
+    serializer_class = InventoryItemSerializer
+    permission_classes = [IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        audit_logs = StockAudit.objects.filter(
+            object_id=instance.id,
+            object_type='ITEM'
+        ).order_by('-timestamp')
+        
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+        data['audit_logs'] = StockAuditSerializer(audit_logs, many=True).data
+        return Response(data)
+
+    def perform_create(self, serializer):
+        item = serializer.save(owner=self.request.user)
+        log_complex_audit(self.request.user, 'CREATE', 'ITEM', item, serializer.validated_data)
+
+    def perform_update(self, serializer):
+        old_instance = self.get_object()
+        old_quantity = old_instance.quantity
+
+        item = serializer.save()
+        new_quantity = item.quantity
+        threshold = item.low_stock_threshold
+
+        log_complex_audit(self.request.user, 'UPDATE', 'ITEM', old_instance, serializer.validated_data)
+
+        if old_quantity > threshold and new_quantity <= threshold:
+            send_low_stock_email(item)
+
+    def perform_destroy(self, instance):
+        if instance.owner != self.request.user:
+            raise exceptions.PermissionDenied("Ownership required for deletion.")
+        
+        log_complex_audit(self.request.user, 'DELETE', 'ITEM', instance)
+        instance.delete()
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all().order_by('-created_at')
+    serializer_class = OrderSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        order = serializer.save(processed_by=self.request.user)
+        item = order.item
+        
+        log_complex_audit(
+            user=self.request.user,
+            action='CREATE',
+            obj_type='ORDER',
+            instance=order,
+            validated_data=serializer.validated_data
+        )
+        
+        old_quantity = item.quantity
+        new_quantity = item.quantity - order.quantity_ordered
+        
+        log_complex_audit(
+            user=self.request.user, 
+            action='UPDATE', 
+            obj_type='ITEM', 
+            instance=item, 
+            validated_data={'quantity': new_quantity} 
+        )
+
+        item.quantity = new_quantity
+        item.save()
+
+        if old_quantity > item.low_stock_threshold and new_quantity <= item.low_stock_threshold:
+            send_low_stock_email(item)
 
 class UserViewSet(viewsets.ModelViewSet):
     """ViewSet to handle User account updates/deletes with auditing"""
