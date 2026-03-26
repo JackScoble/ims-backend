@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategoryViewSet, InventoryItemViewSet, StockAuditViewSet, RegisterUserView, UserViewSet, DailyStockSnapshotListView, UserProfileView
+from .views import CategoryViewSet, InventoryItemViewSet, StockAuditViewSet, RegisterUserView, UserViewSet, DailyStockSnapshotListView, UserProfileView, PasswordChangeView
 
 router = DefaultRouter()
 router.register(r'categories', CategoryViewSet)
@@ -13,5 +13,6 @@ urlpatterns = [
     path('snapshots/', DailyStockSnapshotListView.as_view(), name='stock-snapshots'),
     path('profile/', UserProfileView.as_view(), name='user-profile'),
     path('password_reset/', include('django_rest_passwordreset.urls', namespace='password_reset')),
+    path('password_change/', PasswordChangeView.as_view(), name='password_change'),
     path('', include(router.urls)),
 ]

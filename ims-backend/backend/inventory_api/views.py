@@ -1,9 +1,12 @@
-from rest_framework import viewsets, permissions, generics, exceptions
+from rest_framework import viewsets, permissions, generics, exceptions, status
 from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot
 from .serializers import *
 from django.contrib.auth.models import User
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 # --- AUDIT ENGINE ---
 def log_complex_audit(user, action, obj_type, instance, validated_data=None):
@@ -140,3 +143,40 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+class PasswordChangeView(APIView):
+    """
+    An endpoint for changing password.
+    Requires the user to be authenticated and provide their old password.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, *args, **kwargs):
+        user = request.user
+        old_password = request.data.get("old_password")
+        new_password = request.data.get("new_password")
+
+        # 1. Verify the old password
+        if not user.check_password(old_password):
+            return Response(
+                {"error": "Your current password was entered incorrectly. Please try again."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Validate the new password using Django's rules
+        try:
+            validate_password(new_password, user)
+        except ValidationError as e:
+            return Response(
+                {"error": e.messages[0]}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 3. Save the new password
+        user.set_password(new_password)
+        user.save()
+
+        return Response(
+            {"message": "Password updated successfully!"}, 
+            status=status.HTTP_200_OK
+        )
