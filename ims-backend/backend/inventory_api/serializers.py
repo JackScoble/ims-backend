@@ -90,10 +90,11 @@ class DailyStockSnapshotSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     item_name = serializers.ReadOnlyField(source='item.name')
+    processed_by_username = serializers.ReadOnlyField(source='processed_by.username')
     
     class Meta:
         model = Order
-        fields = ['id', 'item', 'item_name', 'quantity_ordered', 'processed_by', 'created_at']
+        fields = ['id', 'item', 'item_name', 'quantity_ordered', 'processed_by', 'processed_by_username', 'created_at']
         read_only_fields = ['processed_by', 'created_at']
 
     def validate(self, data):
