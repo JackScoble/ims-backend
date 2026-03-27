@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, UserProfile, Order
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
@@ -25,11 +26,33 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
+    
+    date_joined = serializers.DateTimeField(read_only=True)
+    last_login = serializers.DateTimeField(read_only=True)
+    
+    items_added = serializers.SerializerMethodField()
+    edits_today = serializers.SerializerMethodField()
+    role = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'profile']
-        read_only_fields = ['username']
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name', 'profile',
+            'date_joined', 'last_login', 'items_added', 'edits_today', 'role'
+        ]
+        read_only_fields = ['username', 'date_joined', 'last_login']
+
+    def get_items_added(self, obj):
+        return obj.inventory_items.count()
+
+    def get_edits_today(self, obj):
+        today = timezone.now().date()
+        return StockAudit.objects.filter(user=obj, timestamp__date=today).count()
+
+    def get_role(self, obj):
+        if obj.is_superuser:
+            return "Administrator"
+        return ""
 
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', {})
