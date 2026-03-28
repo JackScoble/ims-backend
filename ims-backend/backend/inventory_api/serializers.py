@@ -22,7 +22,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['profile_image', 'department', 'job_title']
+        fields = ['profile_image', 'department', 'job_title', 'theme_preference']
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()
@@ -65,6 +65,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         profile = instance.profile
         profile.department = profile_data.get('department', profile.department)
         profile.job_title = profile_data.get('job_title', profile.job_title)
+        profile.theme_preference = profile_data.get('theme_preference', profile.theme_preference)
         
         if 'profile_image' in profile_data:
             profile.profile_image = profile_data['profile_image']
