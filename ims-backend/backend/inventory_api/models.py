@@ -62,11 +62,23 @@ class DailyStockSnapshot(models.Model):
         return f"{self.date} - £{self.total_value}"
 
 class UserProfile(models.Model):
+    THEME_CHOICES = (
+        ('light', 'Light'),
+        ('dark', 'Dark'),
+        ('system', 'System Default'),
+    )
+
     # Links directly to the built-in User table
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     department = models.CharField(max_length=100, blank=True, null=True)
     job_title = models.CharField(max_length=100, blank=True, null=True)
+    
+    theme_preference = models.CharField(
+        max_length=10, 
+        choices=THEME_CHOICES, 
+        default='system'
+    )
 
     def __str__(self):
         return f"{self.user.username}'s Profile"
