@@ -1,9 +1,19 @@
+"""
+API Serializers for the Inventory Management System.
+Responsible for converting complex querysets and model instances into native Python
+datatypes that can be easily rendered into JSON, as well as validating incoming data.
+"""
+
 from rest_framework import serializers
 from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, UserProfile, Order
 from django.contrib.auth.models import User
 from django.utils import timezone
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating new user accounts.
+    Explicitly makes the password write-only so it is never exposed in API responses.
+    """
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(required=True)
 
@@ -12,6 +22,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         fields = ['email', 'password']
 
     def create(self, validated_data):
+        """
+        Overrides the default create method to use Django's create_user utility,
+        which automatically hashes the password before saving.
+        """
         user = User.objects.create_user(
             username=validated_data['email'], 
             email=validated_data['email'],
@@ -20,11 +34,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the extended UserProfile attributes.
+    Usually nested within the UserUpdateSerializer.
+    """
     class Meta:
         model = UserProfile
         fields = ['profile_image', 'department', 'job_title', 'theme_preference']
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive serializer for user accounts.
+    Handles nested updates for the related UserProfile and computes dynamic
+    statistics (items added, daily edits) on the fly.
+    """
     profile = UserProfileSerializer()
     
     date_joined = serializers.DateTimeField(read_only=True)
@@ -55,6 +78,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return ""
 
     def update(self, instance, validated_data):
+        """
+        Custom update logic to handle writing to both the User model 
+        and the nested UserProfile model simultaneously.
+        """
         profile_data = validated_data.pop('profile', {})
         
         instance.email = validated_data.get('email', instance.email)
@@ -75,11 +102,18 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         return instance
 
 class CategorySerializer(serializers.ModelSerializer):
+    """
+    Standard serializer for inventory categories.
+    """
     class Meta:
         model = Category
         fields = ['id', 'name', 'description']
 
 class StockAuditSerializer(serializers.ModelSerializer):
+    """
+    Serializer for system audit logs.
+    Pulls the human-readable username from the related User model.
+    """
     username = serializers.ReadOnlyField(source='user.username')
     
     class Meta:
@@ -91,6 +125,11 @@ class StockAuditSerializer(serializers.ModelSerializer):
         ]
 
 class InventoryItemSerializer(serializers.ModelSerializer):
+    """
+    Comprehensive serializer for Inventory Items.
+    Flattens related fields (category name, owner info) for easier frontend consumption
+    and nests the item's specific audit history.
+    """
     category_name = serializers.ReadOnlyField(source='category.name')
 
     owner_name = serializers.ReadOnlyField(source='owner.username')
@@ -108,11 +147,18 @@ class InventoryItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['owner', 'owner_name', 'owner_email', 'created_at', 'updated_at']
 
 class DailyStockSnapshotSerializer(serializers.ModelSerializer):
+    """
+    Serializer for historical inventory value data points.
+    """
     class Meta:
         model = DailyStockSnapshot
         fields = ['date', 'total_value']
 
 class OrderSerializer(serializers.ModelSerializer):
+    """
+    Serializer for inventory outbound orders.
+    Validates stock availability before allowing an order to process.
+    """
     item_name = serializers.ReadOnlyField(source='item.name')
     processed_by_username = serializers.ReadOnlyField(source='processed_by.username')
     
@@ -122,6 +168,10 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['processed_by', 'created_at']
 
     def validate(self, data):
+        """
+        Business logic validation layer.
+        Ensures order quantities are valid and that sufficient stock exists.
+        """
         if data['quantity_ordered'] <= 0:
             raise serializers.ValidationError({"quantity_ordered": "Order quantity must be at least 1."})
         

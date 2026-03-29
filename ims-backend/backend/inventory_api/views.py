@@ -1,3 +1,8 @@
+"""
+API view controllers for the Inventory Management System.
+Handles business logic, request routing, and automatic audit logging injections.
+"""
+
 from rest_framework import viewsets, permissions, generics, exceptions, status
 from .models import Category, InventoryItem, StockAudit, DailyStockSnapshot, Order
 from .serializers import *
@@ -14,7 +19,14 @@ import os
 # --- AUDIT ENGINE ---
 def log_complex_audit(user, action, obj_type, instance, validated_data=None):
     """
-    Calculates differences and saves a detailed audit record.
+    Calculates differences between database states and saves a detailed audit record.
+
+    Args:
+        user (User): The user performing the action.
+        action (str): The type of action ('CREATE', 'UPDATE', 'DELETE').
+        obj_type (str): The system entity type ('ITEM', 'CATEGORY', 'USER', 'ORDER').
+        instance (Model): The database instance being manipulated.
+        validated_data (dict, optional): The incoming new data payload. Defaults to None.
     """
     description = ""
     changes_count = 0
@@ -23,7 +35,6 @@ def log_complex_audit(user, action, obj_type, instance, validated_data=None):
 
     if action == 'CREATE':
         description = f"Created new {obj_type}."
-        # Count fields provided during creation
         changes_count = len(validated_data.keys()) if validated_data else 0
     
     elif action == 'DELETE':
@@ -33,10 +44,8 @@ def log_complex_audit(user, action, obj_type, instance, validated_data=None):
     elif action == 'UPDATE' and validated_data:
         diffs = []
         for field, new_value in validated_data.items():
-            # Get the current value from the database before the save
             old_value = getattr(instance, field)
             
-            # Simple comparison (handles strings, ints, and objects)
             if str(old_value) != str(new_value):
                 diffs.append(f"{field}: {old_value} → {new_value}")
                 changes_count += 1
@@ -57,6 +66,10 @@ def log_complex_audit(user, action, obj_type, instance, validated_data=None):
 # --- VIEWS ---
 
 class RegisterUserView(generics.CreateAPIView):
+    """
+    API endpoint for registering new user accounts.
+    Open to unauthenticated requests.
+    """
     queryset = User.objects.all()
     permission_classes = [AllowAny]
     serializer_class = UserRegistrationSerializer
@@ -66,6 +79,10 @@ class RegisterUserView(generics.CreateAPIView):
         log_complex_audit(user, 'CREATE', 'USER', user, serializer.validated_data)
 
 class CategoryViewSet(viewsets.ModelViewSet):
+    """
+    CRUD ViewSet for managing Inventory Categories.
+    Automatically logs Create, Update, and Delete operations to the audit trail.
+    """
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
@@ -84,62 +101,75 @@ class CategoryViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 def send_low_stock_email(item):
-        frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+    """
+    Constructs and dispatches a notification email when an item breaches its low-stock threshold.
 
-        subject = f"IMS Pro: Low Stock Alert for {item.name}"
-        
-        message = (
-            f"Hello,\n\n"
-            f"This is an automated alert. Your inventory for '{item.name}' "
-            f"has dropped to {item.quantity}, which is at or below your custom "
-            f"warning threshold of {item.low_stock_threshold}.\n\n"
-            f"Please log in to IMS Pro to restock soon: {frontend_url}"
+    Args:
+        item (InventoryItem): The specific inventory instance that is running low.
+    """
+    frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+
+    subject = f"IMS Pro: Low Stock Alert for {item.name}"
+    
+    message = (
+        f"Hello,\n\n"
+        f"This is an automated alert. Your inventory for '{item.name}' "
+        f"has dropped to {item.quantity}, which is at or below your custom "
+        f"warning threshold of {item.low_stock_threshold}.\n\n"
+        f"Please log in to IMS Pro to restock soon: {frontend_url}"
+    )
+
+    html_message = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #d73a49; border-bottom: 2px solid #eee; padding-bottom: 10px;">⚠️ Low Stock Alert</h2>
+            <p>Hello,</p>
+            <p>This is an automated alert. Your inventory for <strong>'{item.name}'</strong> 
+            has dropped to <strong>{item.quantity}</strong>, which is at or below your custom 
+            warning threshold of {item.low_stock_threshold}.</p>
+            
+            <p>Please log in to your dashboard to restock soon!</p>
+            
+            <div style="margin: 30px 0;">
+                <a href="{frontend_url}" 
+                   style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                   Go to IMS Pro
+                </a>
+            </div>
+            
+            <p style="font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
+                If the button doesn't work, copy and paste this link into your browser: <br>
+                {frontend_url}
+            </p>
+        </body>
+    </html>
+    """
+    
+    recipient_email = item.owner.email 
+
+    if recipient_email:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[recipient_email],
+            fail_silently=False,
+            html_message=html_message
         )
 
-        html_message = f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #d73a49; border-bottom: 2px solid #eee; padding-bottom: 10px;">⚠️ Low Stock Alert</h2>
-                <p>Hello,</p>
-                <p>This is an automated alert. Your inventory for <strong>'{item.name}'</strong> 
-                has dropped to <strong>{item.quantity}</strong>, which is at or below your custom 
-                warning threshold of {item.low_stock_threshold}.</p>
-                
-                <p>Please log in to your dashboard to restock soon!</p>
-                
-                <div style="margin: 30px 0;">
-                    <a href="{frontend_url}" 
-                       style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-                       Go to IMS Pro
-                    </a>
-                </div>
-                
-                <p style="font-size: 12px; color: #777; border-top: 1px solid #eee; padding-top: 10px;">
-                    If the button doesn't work, copy and paste this link into your browser: <br>
-                    {frontend_url}
-                </p>
-            </body>
-        </html>
-        """
-        
-        recipient_email = item.owner.email 
-
-        if recipient_email:
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[recipient_email],
-                fail_silently=False,
-                html_message=html_message
-            )
-
 class InventoryItemViewSet(viewsets.ModelViewSet):
+    """
+    Core ViewSet for full CRUD capabilities on Inventory items.
+    Enforces ownership permissions and intercepts saves to monitor low-stock thresholds.
+    """
     queryset = InventoryItem.objects.all()
     serializer_class = InventoryItemSerializer
     permission_classes = [IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
+        """
+        Retrieves a single inventory item and appends its specific audit history to the payload.
+        """
         instance = self.get_object()
         audit_logs = StockAudit.objects.filter(
             object_id=instance.id,
@@ -156,6 +186,9 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         log_complex_audit(self.request.user, 'CREATE', 'ITEM', item, serializer.validated_data)
 
     def perform_update(self, serializer):
+        """
+        Intercepts item updates to verify changes in quantity against low-stock thresholds.
+        """
         old_instance = self.get_object()
         old_quantity = old_instance.quantity
 
@@ -176,11 +209,18 @@ class InventoryItemViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 class OrderViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for processing transactions.
+    Automatically deducts order quantities from the parent InventoryItem stock.
+    """
     queryset = Order.objects.all().order_by('-created_at')
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
+        """
+        Executes the order, updates related inventory stock, and logs multiple audit entries.
+        """
         order = serializer.save(processed_by=self.request.user)
         item = order.item
         
@@ -210,7 +250,9 @@ class OrderViewSet(viewsets.ModelViewSet):
             send_low_stock_email(item)
 
 class UserViewSet(viewsets.ModelViewSet):
-    """ViewSet to handle User account updates/deletes with auditing"""
+    """
+    ViewSet to handle User account updates and deletions with enforced audit logging.
+    """
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [IsAuthenticated]
@@ -225,15 +267,24 @@ class UserViewSet(viewsets.ModelViewSet):
         instance.delete()
 
 class StockAuditViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Read-only endpoint exposing the historical system audit trail.
+    """
     queryset = StockAudit.objects.all().order_by('-timestamp')
     serializer_class = StockAuditSerializer
     permission_classes = [IsAuthenticated]
 
 class DailyStockSnapshotListView(generics.ListAPIView):
+    """
+    Endpoint for retrieving time-series inventory value data for analytical charting.
+    """
     queryset = DailyStockSnapshot.objects.all()
     serializer_class = DailyStockSnapshotSerializer
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
+    """
+    Endpoint for a user to retrieve and modify their own extended profile attributes.
+    """
     serializer_class = UserUpdateSerializer
     permission_classes = [IsAuthenticated]
 
@@ -242,8 +293,8 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
 
 class PasswordChangeView(APIView):
     """
-    An endpoint for changing password.
-    Requires the user to be authenticated and provide their old password.
+    Dedicated endpoint for authenticated password modification.
+    Enforces Django's native password validation rules and validates the old password.
     """
     permission_classes = [IsAuthenticated]
 
@@ -252,14 +303,12 @@ class PasswordChangeView(APIView):
         old_password = request.data.get("old_password")
         new_password = request.data.get("new_password")
 
-        # 1. Verify the old password
         if not user.check_password(old_password):
             return Response(
                 {"error": "Your current password was entered incorrectly. Please try again."}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 2. Validate the new password using Django's rules
         try:
             validate_password(new_password, user)
         except ValidationError as e:
@@ -268,7 +317,6 @@ class PasswordChangeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 3. Save the new password
         user.set_password(new_password)
         user.save()
 

@@ -1,3 +1,9 @@
+"""
+Database models for the Inventory Management System.
+Defines the schema for inventory items, categorization, user profiles,
+and audit logging.
+"""
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -10,6 +16,13 @@ from django_rest_passwordreset.signals import reset_password_token_created
 import os
 
 class Category(models.Model):
+    """
+    Represents a grouping category for inventory items.
+
+    Attributes:
+        name (str): The unique display name of the category.
+        description (str): Optional text describing the category contents.
+    """
     name = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
 
@@ -17,6 +30,22 @@ class Category(models.Model):
         return self.name
 
 class InventoryItem(models.Model):
+    """
+    Represents a single unique product or material within the inventory.
+
+    Attributes:
+        name (str): The display name of the item.
+        sku (str): Unique Stock Keeping Unit identifier.
+        description (str): Detailed text regarding the item.
+        quantity (int): Current number of physical units in stock.
+        price (Decimal): The monetary value of a single unit.
+        low_stock_threshold (int): The quantity at which low-stock alerts are triggered.
+        category (Category): The grouping this item belongs to.
+        image (ImageFile): Optional visual representation of the item.
+        created_at (datetime): Timestamp of item creation.
+        updated_at (datetime): Timestamp of the last modification.
+        owner (User): The user responsible for this specific item.
+    """
     name = models.CharField(max_length=200)
     sku = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
@@ -33,18 +62,29 @@ class InventoryItem(models.Model):
         return f"{self.name} (SKU: {self.sku})"
 
 class StockAudit(models.Model):
-    # Who changed it
+    """
+    Records a historical log of system actions for accountability and tracking.
+
+    Attributes:
+        user (User): The system user who performed the action.
+        username (str): Captured username for historical integrity if the User is deleted.
+        timestamp (datetime): When the action occurred.
+        object_type (str): The entity affected ('ITEM', 'CATEGORY', 'USER').
+        object_id (int): The primary key of the affected entity.
+        object_name (str): Human-readable identifier of the entity.
+        action (str): The type of operation performed ('CREATE', 'UPDATE', 'DELETE').
+        description (str): A detailed breakdown of the exact fields changed.
+        fields_changed_count (int): The total number of attributes modified in this action.
+    """
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     username = models.CharField(max_length=150, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
-    # What was changed
-    object_type = models.CharField(max_length=50, default="UNKNOWN") # 'ITEM', 'CATEGORY', 'USER'
+    object_type = models.CharField(max_length=50, default="UNKNOWN")
     object_id = models.PositiveIntegerField(null=True)
-    object_name = models.CharField(max_length=255, blank=True) # SKU, Name, or Username
+    object_name = models.CharField(max_length=255, blank=True)
     
-    # Action details
-    action = models.CharField(max_length=20) # 'CREATE', 'UPDATE', 'DELETE'
+    action = models.CharField(max_length=20)
     description = models.TextField(default="")
     fields_changed_count = models.IntegerField(default=0)
 
@@ -52,23 +92,39 @@ class StockAudit(models.Model):
         return f"{self.action} on {self.object_type} by {self.username}"
 
 class DailyStockSnapshot(models.Model):
+    """
+    Captures a point-in-time calculation of total inventory value for analytical charting.
+
+    Attributes:
+        date (date): The specific calendar day the snapshot represents.
+        total_value (Decimal): The aggregate monetary value of all inventory on this date.
+    """
     date = models.DateField(default=timezone.now, unique=True)
     total_value = models.DecimalField(max_digits=10, decimal_places=2)
     
     class Meta:
-        ordering = ['date'] # Ensures the chart always reads left-to-right by date
+        ordering = ['date'] 
 
     def __str__(self):
         return f"{self.date} - £{self.total_value}"
 
 class UserProfile(models.Model):
+    """
+    Extended user attributes that expand upon the default Django User model.
+
+    Attributes:
+        user (User): The base Django authentication record.
+        profile_image (ImageFile): Avatar uploaded by the user.
+        department (str): The organizational unit the user belongs to.
+        job_title (str): The user's specific role.
+        theme_preference (str): UI color scheme preference ('light', 'dark', 'system').
+    """
     THEME_CHOICES = (
         ('light', 'Light'),
         ('dark', 'Dark'),
         ('system', 'System Default'),
     )
 
-    # Links directly to the built-in User table
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     profile_image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
     department = models.CharField(max_length=100, blank=True, null=True)
@@ -84,27 +140,32 @@ class UserProfile(models.Model):
         return f"{self.user.username}'s Profile"
 
 # --- DJANGO SIGNALS ---
-# This automatically creates a UserProfile whenever a new User registers
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
+    """
+    Signal handler to automatically generate a UserProfile when a new User is registered.
+    """
     if created:
         UserProfile.objects.create(user=instance)
 
-# This automatically saves the UserProfile whenever the User is saved
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
+    """
+    Signal handler to ensure the related UserProfile saves when the User object updates.
+    """
     instance.profile.save()
 
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
     """
-    Handles password reset tokens
-    When a token is created, an e-mail needs to be sent to the user
+    Signal handler that triggers upon password reset token generation.
+    Constructs a dynamic frontend URL and dispatches the recovery email.
+
+    Args:
+        reset_password_token (ResetPasswordToken): The generated secure token instance.
     """
-    # Pull the frontend URL from the environment, fallback to localhost just in case
     frontend_url = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-    
-    # Construct the exact URL for your React app
     reset_url = f"{frontend_url}/reset-password?token={reset_password_token.key}"
 
     print(f"\n\n--- PASSWORD RESET LINK ---\n{reset_url}\n---------------------------\n\n")
@@ -131,6 +192,15 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     )
 
 class Order(models.Model):
+    """
+    Represents a transaction reducing the stock quantity of a specific item.
+
+    Attributes:
+        item (InventoryItem): The product being ordered/removed.
+        quantity_ordered (int): The volume of units removed from stock.
+        processed_by (User): The user who executed the order.
+        created_at (datetime): Timestamp of the order transaction.
+    """
     item = models.ForeignKey('InventoryItem', on_delete=models.CASCADE, related_name='orders')
     quantity_ordered = models.PositiveIntegerField()
     processed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
