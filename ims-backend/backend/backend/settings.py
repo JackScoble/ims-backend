@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+import dj_database_url
 
 # This loads .env file
 load_dotenv()
@@ -30,7 +31,7 @@ SECRET_KEY = "django-insecure-uv^%%ef1ou#msz(u&uxas!vln5w8-r&agr(ap4ckxdagaxnhgd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -82,16 +83,13 @@ WSGI_APPLICATION = "backend.wsgi.application"
 
 
 # Database
-
+# Use dj_database_url to read the DATABASE_URL environment variable on Render.
+# If it's not found, it will try to use the old localhost settings (for local dev).
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': 'localhost',
-        'PORT': '5432',
-    }
+    'default': dj_database_url.config(
+        default=f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@localhost:5432/{os.getenv('DB_NAME')}",
+        conn_max_age=600
+    )
 }
 
 
@@ -130,6 +128,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Add this at the bottom of settings.py
 REST_FRAMEWORK = {
