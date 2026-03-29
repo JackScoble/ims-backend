@@ -146,7 +146,7 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "https://glowing-space-engine-r4v46p4pxwxf57xx-5173.app.github.dev",
+    "https://ims-frontend-9xju.onrender.com",
 ]
 
 # Cloudinary Credentials
