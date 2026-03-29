@@ -145,6 +145,9 @@ SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
 }
 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
 CORS_ALLOWED_ORIGINS = [
     "https://ims-frontend-9xju.onrender.com",
 ]
