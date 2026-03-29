@@ -9,7 +9,21 @@ jobs:
     name: Build & Test Django
     runs-on: ubuntu-latest
     
-    # Points to the exact folder containing manage.py based on your screenshot
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_db.postgres
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: ./ims-backend/backend
@@ -31,10 +45,19 @@ jobs:
 
       - name: 🧪 Run Django Tests
         env:
+          SECRET_KEY: 'dummy-secret-key-for-github-actions'
+          DEBUG: 'True'
+          
+          # Database Variables
           DB_NAME: 'test_db.postgres'
           DB_USER: 'test_user'
           DB_PASSWORD: 'test_password'
+          DB_HOST: 'localhost'
+          DB_PORT: '5432'
+          
+          # Cloudinary Variables
           CLOUDINARY_CLOUD_NAME: 'test_cloud_name'
           CLOUDINARY_API_KEY: 'test_api_key'
           CLOUDINARY_API_SECRET: 'test_api_secret'
+          
         run: python manage.py test
