@@ -149,6 +149,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://ims-frontend-9xju.onrender.com",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://ims-frontend-9xju.onrender.com",
+]
+
 # Cloudinary Credentials
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
