@@ -121,7 +121,7 @@ def send_low_stock_email(item):
 
     html_message = f"""
     <html>
-        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 20px 0;">
             <h2 style="color: #d73a49; border-bottom: 2px solid #eee; padding-bottom: 10px;">⚠️ Low Stock Alert</h2>
             <p>Hello,</p>
             <p>This is an automated alert. Your inventory for <strong>'{item.name}'</strong> 
@@ -133,7 +133,7 @@ def send_low_stock_email(item):
             <div style="margin: 30px 0;">
                 <a href="{frontend_url}" 
                    style="background-color: #2196F3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
-                   Go to IMS Pro
+                    Go to IMS Pro
                 </a>
             </div>
             
