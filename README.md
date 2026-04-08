@@ -4,6 +4,8 @@
 
 Welcome to the backend repository for **IMS Pro**, a robust Inventory Management System. This Django REST Framework (DRF) API serves as the central data engine, handling complex business logic, real-time audit logging, and automated notification triggers.
 
+✅ **Live Backend:** [Render Deployed Backend](https://ims-backend-9nhi.onrender.com/api/)
+
 🖥️ **Frontend Repository:** [JackScoble/ims-frontend](https://github.com/JackScoble/ims-frontend)
 
 ---
